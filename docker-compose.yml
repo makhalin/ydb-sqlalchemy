@@ -9,3 +9,9 @@ services:
     environment:
       - YDB_USE_IN_MEMORY_PDISKS=true
       - YDB_ENABLE_COLUMN_TABLES=true
+      - YDB_KAFKA_PROXY_ENABLE=false
+    healthcheck:
+      test: "ydb -e grpc://localhost:2136 -d /local scheme ls"
+      interval: 5s
+      timeout: 5s
+      retries: 10

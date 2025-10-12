@@ -545,6 +545,28 @@ class ContainerTypesTest(fixtures.TablesTest):
 
         eq_(connection.execute(sa.select(table)).fetchall(), [(1,), (2,), (3,)])
 
+    def test_upsert_from_as_table(self, connection):
+        from ydb_sqlalchemy.sqlalchemy.dml import Upsert
+
+        table = self.tables.container_types_test
+
+        connection.execute(
+            Upsert(table).from_select(
+                ["id"],
+                sa.select(sa.column("id")).select_from(
+                    sa.func.as_table(
+                        sa.bindparam(
+                            "data",
+                            value=[{"id": 1}, {"id": 2}, {"id": 3}],
+                            type_=ydb_sa_types.ListType(ydb_sa_types.StructType({"id": sa.Integer})),
+                        )
+                    )
+                ),
+            )
+        )
+
+        eq_(connection.execute(sa.select(table)).fetchall(), [(1,), (2,), (3,)])
+
 
 class ConcatTest(fixtures.TablesTest):
     @classmethod
@@ -590,6 +612,65 @@ class DateTimeCoercedToDateTimeTest(_DateTimeCoercedToDateTimeTest):
 @pytest.mark.skip("named constraints unsupported")
 class LongNameBlowoutTest(_LongNameBlowoutTest):
     pass
+
+
+class UpsertFromSelectTest(fixtures.TablesTest):
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "source",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+        )
+        Table(
+            "target",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+        )
+
+    @classmethod
+    def fixtures(cls):
+        return dict(
+            source=[
+                ("id", "data"),
+                (1, "data1"),
+                (2, "data2"),
+                (3, "data3"),
+            ],
+            target=[],
+        )
+
+    def test_insert_from_select(self, connection):
+        source = self.tables.source
+        target = self.tables.target
+
+        connection.execute(
+            target.insert().from_select(
+                (target.c.id, target.c.data),
+                select(source.c.id, source.c.data),
+            )
+        )
+
+        rows = connection.execute(select(target)).fetchall()
+        eq_(rows, [(1, "data1"), (2, "data2"), (3, "data3")])
+
+    def test_upsert_from_select(self, connection):
+        source = self.tables.source
+        target = self.tables.target
+
+        from ydb_sqlalchemy.sqlalchemy.dml import Upsert
+
+        connection.execute(
+            Upsert(target).from_select(
+                (target.c.id, target.c.data),
+                select(source.c.id, source.c.data),
+            )
+        )
+
+        rows = connection.execute(select(target)).fetchall()
+        eq_(rows, [(1, "data1"), (2, "data2"), (3, "data3")])
 
 
 class RowFetchTest(_RowFetchTest):

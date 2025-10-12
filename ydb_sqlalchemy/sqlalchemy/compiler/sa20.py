@@ -84,8 +84,42 @@ class YqlCompiler(BaseYqlCompiler):
             return f"CAST({string_value} AS Optional<{type_name}>)"
         return f"Yson::ConvertTo({statement}, Optional<{type_name}>)"
 
-    def visit_upsert(self, insert_stmt, visited_bindparam=None, **kw):
-        return self.visit_insert(insert_stmt, visited_bindparam, **kw).replace("INSERT", "UPSERT", 1)
+    def visit_insert(self, insert_stmt, **kw):
+        # YDB does not support `INSERT ... SELECT FROM <target_table>`.
+        # The target table should be excluded from the `FROM` clause
+        # of the `SELECT` statement.
+        if not insert_stmt.from_select:
+            # `super().visit_insert` is not available in SA 1.3,
+            # so we use `super(YqlCompiler, self).visit_insert` for compatibility.
+            return super(YqlCompiler, self).visit_insert(insert_stmt, **kw)
+
+        # We need to suppress the top-level table from being rendered in the
+        # FROM clause of the SELECT.
+        self.stack.append(
+            {"from_clauses": [], "top_from_clause": None, "is_subquery": True}
+        )
+
+        try:
+            preparer = self.preparer
+            text = "INSERT INTO "
+            text += preparer.format_table(insert_stmt.table)
+
+            if insert_stmt.crud_cols:
+                text += " ("
+                text += ", ".join([
+                    self.preparer.quote(c.name) for c in insert_stmt.crud_cols
+                ])
+                text += ")"
+
+            select_text = self.process(insert_stmt.from_select, **kw)
+            text += " " + select_text
+
+            return text
+        finally:
+            self.stack.pop()
+
+    def visit_upsert(self, insert_stmt, **kw):
+        return self.visit_insert(insert_stmt, **kw).replace("INSERT", "UPSERT", 1)
 
 
 class YqlDDLCompiler(BaseYqlDDLCompiler):
