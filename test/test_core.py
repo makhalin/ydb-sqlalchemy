@@ -825,6 +825,88 @@ class TestUpsert(TablesTest):
 
         assert row == [(120, 2), (130, 3)]
 
+    def test_upsert_from_select_as_table(self, connection):
+        types_table = self.tables.test_upsert
+        data = [
+            {"id": 1, "val": 11},
+            {"id": 2, "val": 22},
+        ]
+        stmt = ydb_sa.upsert(types_table).from_select(
+            ["id", "val"],
+            sa.select(
+                sa.column("id", Integer),
+                sa.column("val", Integer),
+            ).select_from(
+                func.AS_TABLE(
+                    bindparam(
+                        "data",
+                        type_=types.ListType(
+                            types.StructType(
+                                (
+                                    ("id", sa.Integer),
+                                    ("val", sa.Integer),
+                                )
+                            )
+                        ),
+                    )
+                )
+            ),
+        )
+        connection.execute(stmt, {"data": data})
+
+        rows = connection.execute(sa.select(types_table)).fetchall()
+        assert len(rows) == 2
+        assert rows[0].id == 1
+        assert rows[0].val == 11
+
+        assert rows[1].id == 2
+        assert rows[1].val == 22
+
+
+class TestInsertFromSelectAsTable(CoreTest):
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "types_table_for_insert",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("value", String),
+        )
+
+    def test_insert_from_select_as_table(self, connection):
+        types_table = self.tables.types_table_for_insert
+        data = [
+            {"id": 1, "value": "value 1"},
+            {"id": 2, "value": "value 2"},
+        ]
+        stmt = types_table.insert().from_select(
+            ["id", "value"],
+            sa.select(
+                sa.column("id", Integer),
+                sa.column("value", String),
+            ).select_from(
+                func.AS_TABLE(
+                    bindparam(
+                        "data",
+                        type_=types.ListType(
+                            types.StructType(
+                                (
+                                    ("id", sa.Integer),
+                                    ("value", sa.String),
+                                )
+                            )
+                        ),
+                    )
+                )
+            ),
+        )
+        connection.execute(stmt, {"data": data})
+
+        rows = connection.execute(sa.select(types_table)).fetchall()
+        assert len(rows) == 2
+        assert rows[0]._asdict() == {"id": 1, "value": "value 1"}
+        assert rows[1]._asdict() == {"id": 2, "value": "value 2"}
+
 
 class TestUpsertDoesNotReplaceInsert(TablesTest):
     __backend__ = True
