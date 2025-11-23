@@ -35,3 +35,48 @@ def test_ydb_types():
     compiled = query.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
 
     assert str(compiled) == "Date('1996-11-19')"
+
+
+def test_struct_type_generation():
+    dialect = YqlDialect()
+    type_compiler = dialect.type_compiler
+
+    # Test default (non-optional)
+    struct_type = types.StructType({
+        "id": sa.Integer,
+        "val_int": sa.Integer,
+    })
+    ydb_type = type_compiler.get_ydb_type(struct_type, is_optional=False)
+    # Keys are sorted
+    assert str(ydb_type) == "Struct<id:Int64,val_int:Int64>"
+
+    # Test optional
+    struct_type_opt = types.StructType({
+        "id": sa.Integer,
+        "val_int": types.Optional(sa.Integer),
+    })
+    ydb_type_opt = type_compiler.get_ydb_type(struct_type_opt, is_optional=False)
+    assert str(ydb_type_opt) == "Struct<id:Int64,val_int:Int64?>"
+
+
+def test_types_compilation():
+    dialect = YqlDialect()
+
+    def compile_type(type_):
+        return dialect.type_compiler.process(type_)
+
+    assert compile_type(types.UInt64()) == "UInt64"
+    assert compile_type(types.UInt32()) == "UInt32"
+    assert compile_type(types.UInt16()) == "UInt16"
+    assert compile_type(types.UInt8()) == "UInt8"
+
+    assert compile_type(types.Int64()) == "Int64"
+    assert compile_type(types.Int32()) == "Int32"
+    assert compile_type(types.Int16()) == "Int32"
+    assert compile_type(types.Int8()) == "Int8"
+
+    assert compile_type(types.ListType(types.Int64())) == "List<Int64>"
+
+    struct = types.StructType({"a": types.Int32(), "b": types.ListType(types.Int32())})
+    # Ordered by key: a, b
+    assert compile_type(struct) == "Struct<a:Int32,b:List<Int32>>"
