@@ -80,3 +80,34 @@ def test_types_compilation():
     struct = types.StructType({"a": types.Int32(), "b": types.ListType(types.Int32())})
     # Ordered by key: a, b
     assert compile_type(struct) == "Struct<a:Int32,b:List<Int32>>"
+
+
+def test_optional_type_compilation():
+    dialect = YqlDialect()
+    type_compiler = dialect.type_compiler
+
+    def compile_type(type_):
+        return type_compiler.process(type_)
+
+    # Test Optional(Integer)
+    opt_int = types.Optional(sa.Integer)
+    assert compile_type(opt_int) == "Optional<Int64>"
+
+    # Test Optional(String)
+    opt_str = types.Optional(sa.String)
+    assert compile_type(opt_str) == "Optional<UTF8>"
+
+    # Test Nested Optional
+    opt_opt_int = types.Optional(types.Optional(sa.Integer))
+    assert compile_type(opt_opt_int) == "Optional<Optional<Int64>>"
+
+    # Test get_ydb_type
+    ydb_type = type_compiler.get_ydb_type(opt_int, is_optional=False)
+    import ydb
+
+    assert isinstance(ydb_type, ydb.OptionalType)
+    # Int64 corresponds to PrimitiveType.Int64
+    # Note: ydb.PrimitiveType.Int64 is an enum member, but ydb_type.item is also an instance/enum?
+    # get_ydb_type returns ydb.PrimitiveType.Int64 (enum) wrapped in OptionalType.
+    # OptionalType.item is the inner type.
+    assert ydb_type.item == ydb.PrimitiveType.Int64

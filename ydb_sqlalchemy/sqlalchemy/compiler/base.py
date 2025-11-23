@@ -140,7 +140,10 @@ class BaseYqlTypeCompiler(StrSQLTypeCompiler):
         return f"List<{inner}>"
 
     def visit_optional(self, type_: types.Optional, **kw):
-        inner = self.process(type_.element_type, **kw)
+        el = type_.element_type
+        if isinstance(el, type):
+            el = el()
+        inner = self.process(el, **kw)
         return f"Optional<{inner}>"
 
     def visit_struct_type(self, type_: types.StructType, **kw):
