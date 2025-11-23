@@ -1,8 +1,8 @@
 import collections
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Type, Union
+
 import sqlalchemy as sa
 import ydb
-from ydb_dbapi import NotSupportedError
-
 from sqlalchemy.exc import CompileError
 from sqlalchemy.sql import ddl
 from sqlalchemy.sql.compiler import (
@@ -12,21 +12,9 @@ from sqlalchemy.sql.compiler import (
     StrSQLTypeCompiler,
     selectable,
 )
-from typing import (
-    Any,
-    Dict,
-    List,
-    Mapping,
-    Sequence,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-)
-
+from ydb_dbapi import NotSupportedError
 
 from .. import types
-
 
 OLD_SA = sa.__version__ < "2."
 if OLD_SA:
@@ -139,10 +127,20 @@ class BaseYqlTypeCompiler(StrSQLTypeCompiler):
         inner = self.process(type_.item_type, **kw)
         return f"List<{inner}>"
 
+    def visit_optional(self, type_: types.Optional, **kw):
+        el = type_.element_type
+        if isinstance(el, type):
+            el = el()
+        inner = self.process(el, **kw)
+        return f"Optional<{inner}>"
+
     def visit_struct_type(self, type_: types.StructType, **kw):
         text = "Struct<"
-        for field, field_type in type_.fields_types:
-            text += f"{field}:{self.process(field_type, **kw)}"
+        for field, field_type in type_.fields_types.items():
+            type_str = self.process(field_type, **kw)
+            text += f"{field}:{type_str},"
+        if text.endswith(","):
+            text = text[:-1]
         return text + ">"
 
     def get_ydb_type(
@@ -153,6 +151,13 @@ class BaseYqlTypeCompiler(StrSQLTypeCompiler):
 
         if isinstance(type_, (sa.Text, sa.String)):
             ydb_type = ydb.PrimitiveType.Utf8
+
+        elif isinstance(type_, types.Optional):
+            if isinstance(type_.element_type, type):
+                inner = type_.element_type()
+            else:
+                inner = type_.element_type
+            return self.get_ydb_type(inner, is_optional=True)
 
         # Integers
         elif isinstance(type_, types.UInt64):
@@ -210,7 +215,11 @@ class BaseYqlTypeCompiler(StrSQLTypeCompiler):
         elif isinstance(type_, types.StructType):
             ydb_type = ydb.StructType()
             for field, field_type in type_.fields_types.items():
-                ydb_type.add_member(field, self.get_ydb_type(field_type(), is_optional=False))
+                if isinstance(field_type, type):
+                    inner_type = field_type()
+                else:
+                    inner_type = field_type
+                ydb_type.add_member(field, self.get_ydb_type(inner_type, is_optional=False))
         else:
             raise NotSupportedError(f"{type_} bind variables not supported")
 
