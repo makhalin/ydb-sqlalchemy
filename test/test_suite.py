@@ -272,7 +272,6 @@ class NumericTest(_NumericTest):
     pass
 
 
-@pytest.mark.skip("TODO: see issue #13")
 class BinaryTest(_BinaryTest):
     pass
 
