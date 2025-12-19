@@ -1114,8 +1114,6 @@ class TestTablePathPrefix(TablesTest):
         assert "nested_dir/table" in metadata.tables
 
 
-
-
 class TestAsTable(TablesTest):
     __backend__ = True
 

@@ -42,19 +42,23 @@ def test_struct_type_generation():
     type_compiler = dialect.type_compiler
 
     # Test default (non-optional)
-    struct_type = types.StructType({
-        "id": sa.Integer,
-        "val_int": sa.Integer,
-    })
+    struct_type = types.StructType(
+        {
+            "id": sa.Integer,
+            "val_int": sa.Integer,
+        }
+    )
     ydb_type = type_compiler.get_ydb_type(struct_type, is_optional=False)
     # Keys are sorted
     assert str(ydb_type) == "Struct<id:Int64,val_int:Int64>"
 
     # Test optional
-    struct_type_opt = types.StructType({
-        "id": sa.Integer,
-        "val_int": types.Optional(sa.Integer),
-    })
+    struct_type_opt = types.StructType(
+        {
+            "id": sa.Integer,
+            "val_int": types.Optional(sa.Integer),
+        }
+    )
     ydb_type_opt = type_compiler.get_ydb_type(struct_type_opt, is_optional=False)
     assert str(ydb_type_opt) == "Struct<id:Int64,val_int:Int64?>"
 
