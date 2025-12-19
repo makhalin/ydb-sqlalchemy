@@ -223,7 +223,7 @@ class TestTypes(TablesTest):
             "test_primitive_types",
             metadata,
             Column("int", sa.Integer, primary_key=True),
-            # Column("bin", sa.BINARY),
+            Column("bin", sa.BINARY),
             Column("str", sa.String),
             Column("float", sa.Float),
             Column("bool", sa.Boolean),
@@ -244,7 +244,7 @@ class TestTypes(TablesTest):
 
         statement = sa.insert(table).values(
             int=42,
-            # bin=b"abc",
+            bin=b"abc",
             str="Hello World!",
             float=3.5,
             bool=True,
@@ -253,7 +253,7 @@ class TestTypes(TablesTest):
         connection.execute(statement)
 
         row = connection.execute(sa.select(table)).fetchone()
-        assert row == (42, "Hello World!", 3.5, True)
+        assert row == (42, b"abc", "Hello World!", 3.5, True)
 
     def test_integer_types(self, connection):
         stmt = sa.select(
