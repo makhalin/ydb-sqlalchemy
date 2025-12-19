@@ -1,6 +1,7 @@
+from typing import Union
+
 import sqlalchemy as sa
 import ydb
-
 from sqlalchemy.exc import CompileError
 from sqlalchemy.sql import literal_column
 from sqlalchemy.util.compat import inspect_getfullargspec
@@ -11,7 +12,6 @@ from .base import (
     BaseYqlIdentifierPreparer,
     BaseYqlTypeCompiler,
 )
-from typing import Union
 
 
 class YqlTypeCompiler(BaseYqlTypeCompiler):
