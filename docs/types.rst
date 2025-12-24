@@ -84,7 +84,7 @@ The following table shows the complete mapping between YDB native types, YDB SQL
      - ``decimal.Decimal``
      -
    * - ``String``
-     -
+     - :class:`~ydb_sqlalchemy.sqlalchemy.types.YqlBinary`
      - ``BINARY``
      - ``bytes``
      -
