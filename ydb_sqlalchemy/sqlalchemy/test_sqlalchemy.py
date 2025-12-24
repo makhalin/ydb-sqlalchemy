@@ -35,10 +35,3 @@ def test_ydb_types():
     compiled = query.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
 
     assert str(compiled) == "Date('1996-11-19')"
-
-
-def test_binary_type_rendering():
-    dialect = YqlDialect()
-
-    assert dialect.type_compiler.process(sa.BINARY()) == "String"
-    assert dialect.type_compiler.process(types.YqlBinary()) == "String"

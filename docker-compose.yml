@@ -9,4 +9,3 @@ services:
     environment:
       - YDB_USE_IN_MEMORY_PDISKS=true
       - YDB_ENABLE_COLUMN_TABLES=true
-      - YDB_KAFKA_PROXY_PORT=0

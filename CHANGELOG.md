@@ -1,3 +1,18 @@
+## 0.1.14 ##
+* Add ability to propagate RetrySettings
+
+## 0.1.13 ##
+* Add TupleType mapping support for YDB
+
+## 0.1.12 ##
+* Fix sa 2.0.44 compatibility
+
+## 0.1.11 ##
+* Date32, Datetime64 and Timestamp64 support
+
+## 0.1.10 ##
+* YDB Decimal support
+
 ## 0.1.9 ##
 * Implement YDB specific concat
 

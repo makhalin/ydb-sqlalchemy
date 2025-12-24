@@ -113,8 +113,12 @@ class BaseYqlTypeCompiler(StrSQLTypeCompiler):
         return "Int64"
 
     def visit_NUMERIC(self, type_: sa.Numeric, **kw):
-        """Only Decimal(22,9) is supported for table columns"""
         return f"Decimal({type_.precision}, {type_.scale})"
+
+    def visit_DECIMAL(self, type_: sa.DECIMAL, **kw):
+        precision = getattr(type_, "precision", None) or 22
+        scale = getattr(type_, "scale", None) or 9
+        return f"Decimal({precision}, {scale})"
 
     def visit_BINARY(self, type_: sa.BINARY, **kw):
         return "String"
@@ -130,6 +134,15 @@ class BaseYqlTypeCompiler(StrSQLTypeCompiler):
 
     def visit_TIMESTAMP(self, type_: sa.TIMESTAMP, **kw):
         return "Timestamp"
+
+    def visit_date32(self, type_: types.YqlDate32, **kw):
+        return "Date32"
+
+    def visit_timestamp64(self, type_: types.YqlTimestamp64, **kw):
+        return "Timestamp64"
+
+    def visit_datetime64(self, type_: types.YqlDateTime64, **kw):
+        return "DateTime64"
 
     def visit_list_type(self, type_: types.ListType, **kw):
         inner = self.process(type_.item_type, **kw)
@@ -189,6 +202,12 @@ class BaseYqlTypeCompiler(StrSQLTypeCompiler):
         elif isinstance(type_, types.YqlJSON.YqlJSONPathType):
             ydb_type = ydb.PrimitiveType.Utf8
         # Json
+        elif isinstance(type_, types.YqlDate32):
+            ydb_type = ydb.PrimitiveType.Date32
+        elif isinstance(type_, types.YqlTimestamp64):
+            ydb_type = ydb.PrimitiveType.Timestamp64
+        elif isinstance(type_, types.YqlDateTime64):
+            ydb_type = ydb.PrimitiveType.Datetime64
         elif isinstance(type_, sa.DATETIME):
             ydb_type = ydb.PrimitiveType.Datetime
         elif isinstance(type_, sa.TIMESTAMP):
@@ -197,16 +216,22 @@ class BaseYqlTypeCompiler(StrSQLTypeCompiler):
             ydb_type = ydb.PrimitiveType.Timestamp
         elif isinstance(type_, sa.Date):
             ydb_type = ydb.PrimitiveType.Date
-        elif isinstance(type_, (sa.BINARY, sa.LargeBinary, types.YqlBinary)):
+        elif isinstance(type_, (sa.BINARY, sa.LargeBinary, types.Binary)):
             ydb_type = ydb.PrimitiveType.String
         elif isinstance(type_, sa.Float):
             ydb_type = ydb.PrimitiveType.Float
         elif isinstance(type_, sa.Boolean):
             ydb_type = ydb.PrimitiveType.Bool
         elif isinstance(type_, sa.Numeric):
-            ydb_type = ydb.DecimalType(type_.precision, type_.scale)
+            precision = getattr(type_, "precision", None) or 22
+            scale = getattr(type_, "scale", None) or 9
+            ydb_type = ydb.DecimalType(precision, scale)
         elif isinstance(type_, (types.ListType, sa.ARRAY)):
             ydb_type = ydb.ListType(self.get_ydb_type(type_.item_type, is_optional=False))
+        elif isinstance(type_, sa.TupleType):
+            ydb_type = ydb.TupleType()
+            for item_type in type_.types:
+                ydb_type.add_element(self.get_ydb_type(item_type, is_optional=False))
         elif isinstance(type_, types.StructType):
             ydb_type = ydb.StructType()
             for field, field_type in type_.fields_types.items():

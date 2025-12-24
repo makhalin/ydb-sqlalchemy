@@ -61,6 +61,9 @@ COLUMN_TYPES = {
     ydb.DecimalType: sa.DECIMAL,
     ydb.PrimitiveType.Yson: sa.TEXT,
     ydb.PrimitiveType.Date: sa.DATE,
+    ydb.PrimitiveType.Date32: sa.DATE,
+    ydb.PrimitiveType.Timestamp64: sa.TIMESTAMP,
+    ydb.PrimitiveType.Datetime64: sa.DATETIME,
     ydb.PrimitiveType.Datetime: sa.DATETIME,
     ydb.PrimitiveType.Timestamp: sa.TIMESTAMP,
     ydb.PrimitiveType.Interval: sa.INTEGER,
@@ -94,6 +97,19 @@ class YdbRequestSettingsCharacteristic(characteristics.ConnectionCharacteristic)
         self, dialect: "YqlDialect", dbapi_connection: ydb_dbapi.Connection
     ) -> ydb.BaseRequestSettings:
         return dialect.get_ydb_request_settings(dbapi_connection)
+
+
+class YdbRetrySettingsCharacteristic(characteristics.ConnectionCharacteristic):
+    def reset_characteristic(self, dialect: "YqlDialect", dbapi_connection: ydb_dbapi.Connection) -> None:
+        dialect.reset_ydb_retry_settings(dbapi_connection)
+
+    def set_characteristic(
+        self, dialect: "YqlDialect", dbapi_connection: ydb_dbapi.Connection, value: ydb.RetrySettings
+    ) -> None:
+        dialect.set_ydb_retry_settings(dbapi_connection, value)
+
+    def get_characteristic(self, dialect: "YqlDialect", dbapi_connection: ydb_dbapi.Connection) -> ydb.RetrySettings:
+        return dialect.get_ydb_retry_settings(dbapi_connection)
 
 
 class YqlDialect(StrCompileDialect):
@@ -140,15 +156,17 @@ class YqlDialect(StrCompileDialect):
         sa.types.DateTime: types.YqlTimestamp,  # Because YDB's DateTime doesn't store microseconds
         sa.types.DATETIME: types.YqlDateTime,
         sa.types.TIMESTAMP: types.YqlTimestamp,
-        sa.types.BINARY: types.YqlBinary,
-        sa.types.LargeBinary: types.YqlBinary,
-        sa.types.BLOB: types.YqlBinary,
+        sa.types.DECIMAL: types.Decimal,
+        sa.types.BINARY: types.Binary,
+        sa.types.LargeBinary: types.Binary,
+        sa.types.BLOB: types.Binary,
     }
 
     connection_characteristics = util.immutabledict(
         {
             "isolation_level": characteristics.IsolationLevelCharacteristic(),
             "ydb_request_settings": YdbRequestSettingsCharacteristic(),
+            "ydb_retry_settings": YdbRetrySettingsCharacteristic(),
         }
     )
 
@@ -310,6 +328,19 @@ class YqlDialect(StrCompileDialect):
 
     def get_ydb_request_settings(self, dbapi_connection: ydb_dbapi.Connection) -> ydb.BaseRequestSettings:
         return dbapi_connection.get_ydb_request_settings()
+
+    def set_ydb_retry_settings(
+        self,
+        dbapi_connection: ydb_dbapi.Connection,
+        value: ydb.RetrySettings,
+    ) -> None:
+        dbapi_connection.set_ydb_retry_settings(value)
+
+    def reset_ydb_retry_settings(self, dbapi_connection: ydb_dbapi.Connection):
+        self.set_ydb_retry_settings(dbapi_connection, ydb.RetrySettings())
+
+    def get_ydb_retry_settings(self, dbapi_connection: ydb_dbapi.Connection) -> ydb.RetrySettings:
+        return dbapi_connection.get_ydb_retry_settings()
 
     def create_connect_args(self, url):
         args, kwargs = super().create_connect_args(url)
