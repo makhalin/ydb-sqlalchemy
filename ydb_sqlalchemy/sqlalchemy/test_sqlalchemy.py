@@ -46,3 +46,20 @@ def test_binary_type():
     expr_binary = sa.cast(expr, sa.BINARY)
     compiled_binary = expr_binary.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
     assert str(compiled_binary) == "CAST('some bytes' AS String)"
+
+
+def test_all_binary_types():
+    dialect = YqlDialect()
+    expr = sa.literal(b"some bytes")
+
+    binary_types = [
+        sa.BINARY,
+        sa.LargeBinary,
+        sa.BLOB,
+        types.Binary,
+    ]
+
+    for type_ in binary_types:
+        expr_binary = sa.cast(expr, type_)
+        compiled_binary = expr_binary.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+        assert str(compiled_binary) == "CAST('some bytes' AS String)"
