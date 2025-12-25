@@ -182,11 +182,18 @@ class TestSimpleSelect(TablesTest):
         assert set(rows) == {(1,), (2,), (3,), (4,), (6,), (7,)}
 
         # LIMIT/OFFSET
-        # rows = connection.execute(tb.select().order_by(tb.c.id).limit(2)).fetchall()
-        # assert rows == [
-        #     (1, "some text", Decimal("3.141592653")),
-        #     (2, "test text", Decimal("3.14159265")),
-        # ]
+        rows = connection.execute(tb.select().order_by(tb.c.id).limit(2)).fetchall()
+        assert rows == [
+            (1, "some text", Decimal("3.141592653")),
+            (2, "test text", Decimal("3.14159265")),
+        ]
+
+        # LIMIT/OFFSET with offset
+        rows = connection.execute(tb.select().order_by(tb.c.id).limit(2).offset(1)).fetchall()
+        assert rows == [
+            (2, "test text", Decimal("3.14159265")),
+            (3, "test test", Decimal("3.1415926")),
+        ]
 
         # ORDER BY ASC
         rows = connection.execute(sa.select(tb.c.id).order_by(tb.c.id)).fetchall()
