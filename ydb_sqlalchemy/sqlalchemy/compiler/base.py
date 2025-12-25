@@ -23,6 +23,7 @@ from typing import (
     Type,
     Union,
 )
+
 try:
     from sqlalchemy.types import _Binary as _BinaryType
 except ImportError:
