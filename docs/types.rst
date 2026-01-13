@@ -301,6 +301,10 @@ You can create a ``StructType`` manually or generate it from an existing SQLAlch
        "data": Optional(Utf8)  # Nullable field
    })
 
+You can also generate a ``StructType`` directly from a SQLAlchemy Table definition. This is particularly useful for bulk operations like ``UPSERT`` where the structure needs to match the table schema exactly.
+
+.. code-block:: python
+
    # 2. Generating StructType from a Table
    # Useful for AS_TABLE bulk operations where the structure matches a table
    from sqlalchemy import Table, Column, Integer, String, MetaData
@@ -332,7 +336,7 @@ You can create a ``StructType`` manually or generate it from an existing SQLAlch
    # We use from_select to insert data selected from the bound parameter :data
    # func.AS_TABLE converts the list of structs into a table-like source
    stmt = upsert(user_table).from_select(
-       ["id", "name", "email"],
+       [c.name for c in user_table.columns],
        sa.select(
            sa.func.AS_TABLE(
                sa.bindparam("data", value=data_to_upsert, type_=sa.ARRAY(user_struct))

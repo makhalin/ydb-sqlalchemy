@@ -145,16 +145,10 @@ class StructType(types.TypeEngine[Mapping[str, Any]]):
             Union[Type[types.TypeEngine], types.TypeEngine, Optional],
         ],
     ):
-        """
-        Initialize StructType.
-
-        :param fields_types: Mapping of field names to their types.
-                             Types can be classes, instances, or Optional wrappers.
-        """
         self.fields_types = HashableDict(dict(sorted(fields_types.items())))
 
     @classmethod
-    def from_table(cls, table: Table):
+    def from_table(cls, table: Table) -> "StructType":
         """
         Create a StructType definition from a SQLAlchemy Table.
 
