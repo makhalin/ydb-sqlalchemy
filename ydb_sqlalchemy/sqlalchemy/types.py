@@ -117,6 +117,12 @@ class HashableDict(dict):
 
 
 class Optional(types.TypeEngine):
+    """
+    Wrapper for YDB Optional type.
+
+    Used primarily within StructType to denote nullable fields.
+    """
+
     __visit_name__ = "optional"
 
     def __init__(self, element_type: Union[Type[types.TypeEngine], types.TypeEngine]):
@@ -124,6 +130,12 @@ class Optional(types.TypeEngine):
 
 
 class StructType(types.TypeEngine[Mapping[str, Any]]):
+    """
+    YDB Struct type.
+
+    Represents a structured data type with named fields, mapped to a Python dictionary.
+    """
+
     __visit_name__ = "struct_type"
 
     def __init__(
@@ -133,10 +145,24 @@ class StructType(types.TypeEngine[Mapping[str, Any]]):
             Union[Type[types.TypeEngine], types.TypeEngine, Optional],
         ],
     ):
+        """
+        Initialize StructType.
+
+        :param fields_types: Mapping of field names to their types.
+                             Types can be classes, instances, or Optional wrappers.
+        """
         self.fields_types = HashableDict(dict(sorted(fields_types.items())))
 
     @classmethod
     def from_table(cls, table: Table):
+        """
+        Create a StructType definition from a SQLAlchemy Table.
+
+        Automatically wraps nullable columns in Optional.
+
+        :param table: SQLAlchemy Table object
+        :return: StructType instance
+        """
         fields = {}
         for col in table.columns:
             t = col.type
