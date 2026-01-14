@@ -1219,8 +1219,11 @@ class TestAsTable(TablesTest):
 
         assert len(rows) == 3
         assert rows[0].id == 1
+        assert rows[0].data == {"a": 1}
         assert rows[1].id == 2
+        assert rows[1].data == [1, 2, 3]
         assert rows[2].id == 3
+        assert rows[2].data is None
 
     def test_insert_as_table(self, connection):
         table = self.tables.test_as_table
