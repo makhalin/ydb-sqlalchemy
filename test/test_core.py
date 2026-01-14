@@ -229,6 +229,15 @@ class TestTypes(TablesTest):
             Column("bool", sa.Boolean),
         )
         Table(
+            "test_all_binary_types",
+            metadata,
+            Column("id", sa.Integer, primary_key=True),
+            Column("bin", sa.BINARY),
+            Column("large_bin", sa.LargeBinary),
+            Column("blob", sa.BLOB),
+            Column("custom_bin", types.Binary),
+        )
+        Table(
             "test_datetime_types",
             metadata,
             Column("datetime", sa.DATETIME, primary_key=True),
@@ -254,6 +263,21 @@ class TestTypes(TablesTest):
 
         row = connection.execute(sa.select(table)).fetchone()
         assert row == (42, "Hello World!", 3.5, True)
+
+    def test_all_binary_types(self, connection):
+        table = self.tables.test_all_binary_types
+        data = {
+            "id": 1,
+            "bin": b"binary",
+            "large_bin": b"large_binary",
+            "blob": b"blob",
+            "custom_bin": b"custom_binary",
+        }
+        statement = sa.insert(table).values(**data)
+        connection.execute(statement)
+
+        row = connection.execute(sa.select(table)).fetchone()
+        assert row == (1, b"binary", b"large_binary", b"blob", b"custom_binary")
 
     def test_integer_types(self, connection):
         stmt = sa.select(
@@ -1112,3 +1136,114 @@ class TestTablePathPrefix(TablesTest):
         metadata.reflect(reflection_engine)
 
         assert "nested_dir/table" in metadata.tables
+
+
+class TestAsTable(TablesTest):
+    __backend__ = True
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "test_as_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("val_int", Integer, nullable=True),
+            Column("val_str", String, nullable=True),
+        )
+
+    def test_upsert_as_table(self, connection):
+        table = self.tables.test_as_table
+
+        input_data = [
+            {"id": 1, "val_int": 10, "val_str": "a"},
+            {"id": 2, "val_int": None, "val_str": "b"},
+            {"id": 3, "val_int": 30, "val_str": None},
+        ]
+
+        struct_type = types.StructType(
+            {
+                "id": Integer,
+                "val_int": types.Optional(Integer),
+                "val_str": types.Optional(String),
+            }
+        )
+        list_type = types.ListType(struct_type)
+
+        bind_param = sa.bindparam("data", type_=list_type)
+
+        upsert_stm = ydb_sa.upsert(table).from_select(
+            ["id", "val_int", "val_str"],
+            sa.select(
+                sa.column("id", type_=Integer), sa.column("val_int", type_=Integer), sa.column("val_str", type_=String)
+            ).select_from(sa.func.AS_TABLE(bind_param)),
+        )
+
+        connection.execute(upsert_stm, {"data": input_data})
+
+        rows = connection.execute(sa.select(table).order_by(table.c.id)).fetchall()
+        assert rows == [
+            (1, 10, "a"),
+            (2, None, "b"),
+            (3, 30, None),
+        ]
+
+    def test_insert_as_table(self, connection):
+        table = self.tables.test_as_table
+
+        input_data = [
+            {"id": 4, "val_int": 40, "val_str": "d"},
+            {"id": 5, "val_int": None, "val_str": "e"},
+        ]
+
+        struct_type = types.StructType(
+            {
+                "id": Integer,
+                "val_int": types.Optional(Integer),
+                "val_str": types.Optional(String),
+            }
+        )
+        list_type = types.ListType(struct_type)
+
+        bind_param = sa.bindparam("data", type_=list_type)
+
+        insert_stm = sa.insert(table).from_select(
+            ["id", "val_int", "val_str"],
+            sa.select(
+                sa.column("id", type_=Integer), sa.column("val_int", type_=Integer), sa.column("val_str", type_=String)
+            ).select_from(sa.func.AS_TABLE(bind_param)),
+        )
+
+        connection.execute(insert_stm, {"data": input_data})
+
+        rows = connection.execute(sa.select(table).where(table.c.id >= 4).order_by(table.c.id)).fetchall()
+        assert rows == [
+            (4, 40, "d"),
+            (5, None, "e"),
+        ]
+
+    def test_upsert_from_table_reflection(self, connection):
+        table = self.tables.test_as_table
+
+        input_data = [
+            {"id": 1, "val_int": 10, "val_str": "a"},
+            {"id": 2, "val_int": None, "val_str": "b"},
+        ]
+
+        struct_type = types.StructType.from_table(table)
+        list_type = types.ListType(struct_type)
+
+        bind_param = sa.bindparam("data", type_=list_type)
+
+        cols = [sa.column(c.name, type_=c.type) for c in table.columns]
+        upsert_stm = ydb_sa.upsert(table).from_select(
+            [c.name for c in table.columns],
+            sa.select(*cols).select_from(sa.func.AS_TABLE(bind_param)),
+        )
+
+        connection.execute(upsert_stm, {"data": input_data})
+
+        rows = connection.execute(sa.select(table).order_by(table.c.id)).fetchall()
+        assert rows == [
+            (1, 10, "a"),
+            (2, None, "b"),
+        ]
