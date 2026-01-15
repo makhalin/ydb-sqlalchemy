@@ -1217,13 +1217,11 @@ class TestAsTable(TablesTest):
 
         rows = connection.execute(sa.select(table).order_by(table.c.id)).fetchall()
 
-        assert len(rows) == 3
-        assert rows[0].id == 1
-        assert rows[0].data == {"a": 1}
-        assert rows[1].id == 2
-        assert rows[1].data == [1, 2, 3]
-        assert rows[2].id == 3
-        assert rows[2].data is None
+        assert rows == [
+            (1, {"a": 1}),
+            (2, [1, 2, 3]),
+            (3, None),
+        ]
 
     def test_insert_as_table(self, connection):
         table = self.tables.test_as_table
